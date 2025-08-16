@@ -103,8 +103,8 @@ await Effect.runPromise(cachedWithRequirements().pipe(Effect.provideService(Rand
 
 ```ts
 declare const reactCache: <A, E, R, Args extends Array<unknown>>(
-  effect: (...args: Args) => Effect.Effect<A, E, R>
-) => (...args: Args) => Effect.Effect<A, E, R>
+  effect: (...args: Args) => Effect.Effect<A, E, NoScope<R>>
+) => (...args: Args) => Effect.Effect<A, E, NoScope<R>>
 ```
 
 - Input: an `Effect`-returning function
@@ -121,6 +121,20 @@ declare const reactCache: <A, E, R, Args extends Array<unknown>>(
 - First call wins: for the same args tuple, the first call’s context and outcome (success or failure) are cached. Later calls with a different context still reuse that result.
 - Errors are cached: if the first call fails, the rejection is reused for subsequent calls with the same args tuple.
 - Concurrency is deduplicated: concurrent calls with the same args share the same pending promise.
+
+### Do's and Don'ts
+
+- **Do**: cache pure/idempotent computations that return plain data.
+- **Do**: include discriminators (locale, tenant, user) in the argument tuple when results depend on them.
+- **Don't**: pass effects that require `Scope` or create live resources (DB/client handles, file handles, sockets). Acquire resources outside and provide them, or use a `Layer`.
+- **Don't**: rely on per-call timeouts/cancellation or different `Context` for the same args. The first call determines the cached outcome and context.
+
+## Limitations
+
+- **No scoped resources**: Effects requiring `Scope` are rejected at the type level. React's `cache` evaluates once and reuses the result, so any scoped resource would be finalized immediately after creation, breaking later callers.
+- **First call wins**: For a given args tuple, the first call's context and outcome (success or failure) are cached and reused.
+- **Context sensitivity**: If results depend on request context (logger level, locale, tracer span, etc.), include those discriminators in the arguments or avoid caching.
+- **Streams/Channels**: Don't cache effects that return live `Stream`/`Channel` handles tied to resources.
 
 ## Testing
 
