@@ -158,6 +158,6 @@ See `test/ReactCache.test.ts` for examples covering caching, argument sensitivit
 - Since the first outcome is cached, design your effects such that this is acceptable for your use case. For context-sensitive computations, include discriminators in the argument list.
 - This library is designed for server-side usage (e.g., React Server Components / server actions) where React’s `cache` is meaningful.
 
-## License
+## Works with Next.js
 
-MIT © Mattia Crovero
+You can use this library together with [@mcrovero/effect-nextjs](https://www.npmjs.com/package/@mcrovero/effect-nextjs) to cache `Effect`-based functions between Next.js pages, layouts, and server components.
