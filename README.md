@@ -13,14 +13,9 @@ Typed helpers to compose React’s `cache` with `Effect` in a type-safe, ergonom
 pnpm add @mcrovero/effect-react-cache effect react
 ```
 
-### Requirements
-
-- React: 19.x
-- effect: latest
-
 ## Why
 
-React 19 exposes a low-level `cache` primitive to memoize async work by argument tuple. This library wraps an `Effect`-returning function with React’s `cache` so you can:
+React exposes a low-level `cache` primitive to memoize async work by argument tuple. This library wraps an `Effect`-returning function with React’s `cache` so you can:
 
 - Deduplicate concurrent calls: share the same pending promise across callers
 - Memoize by arguments: same args → same result without re-running the effect
