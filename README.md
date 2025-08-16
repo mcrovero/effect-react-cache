@@ -51,7 +51,7 @@ await Effect.runPromise(cachedFetchUser("u-1"))
 
 ```ts
 import { Effect } from "effect"
-import { reactCache } from "@mcrovero/effect-react-cache"
+import { reactCache } from "@mcrovero/effect-react-cache/ReactCache"
 
 const getUser = (id: string) =>
   Effect.gen(function* () {
@@ -70,7 +70,7 @@ await Effect.runPromise(cachedGetUser("42")) // reuses cached promise
 
 ```ts
 import { Effect } from "effect"
-import { reactCache } from "@mcrovero/effect-react-cache"
+import { reactCache } from "@mcrovero/effect-react-cache/ReactCache"
 
 export const cachedNoArgs = reactCache(() =>
   Effect.gen(function* () {
@@ -84,7 +84,7 @@ export const cachedNoArgs = reactCache(() =>
 
 ```ts
 import { Context, Effect } from "effect"
-import { reactCache } from "@mcrovero/effect-react-cache"
+import { reactCache } from "@mcrovero/effect-react-cache/ReactCache"
 
 class Random extends Context.Tag("MyRandomService")<Random, { readonly next: Effect.Effect<number> }>() {}
 
