@@ -30,7 +30,7 @@ React 19 exposes a low-level `cache` primitive to memoize async work by argument
 
 ```ts
 import { Effect } from "effect"
-import { reactCache } from "@mcrovero/effect-react-cache"
+import { reactCache } from "@mcrovero/effect-react-cache/ReactCache"
 
 // 1) Wrap an Effect-returning function
 const fetchUser = (id: string) =>

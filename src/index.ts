@@ -1,4 +1,5 @@
 /**
  * @since 1.0.0
+ * @category type ids
  */
-export * from "./ReactCache.js"
+export * as ReactCache from "./ReactCache.js"
