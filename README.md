@@ -30,7 +30,7 @@ React 19 exposes a low-level `cache` primitive to memoize async work by argument
 
 ```ts
 import { Effect } from "effect"
-import { reactCache } from "@mcrovero/effect-react-cache/dist/ReactCache.js"
+import { reactCache } from "@mcrovero/effect-react-cache"
 
 // 1) Wrap an Effect-returning function
 const fetchUser = (id: string) =>
@@ -51,7 +51,7 @@ await Effect.runPromise(cachedFetchUser("u-1"))
 
 ```ts
 import { Effect } from "effect"
-import { reactCache } from "@mcrovero/effect-react-cache/dist/ReactCache.js"
+import { reactCache } from "@mcrovero/effect-react-cache"
 
 const getUser = (id: string) =>
   Effect.gen(function* () {
@@ -70,7 +70,7 @@ await Effect.runPromise(cachedGetUser("42")) // reuses cached promise
 
 ```ts
 import { Effect } from "effect"
-import { reactCache } from "@mcrovero/effect-react-cache/dist/ReactCache.js"
+import { reactCache } from "@mcrovero/effect-react-cache"
 
 export const cachedNoArgs = reactCache(() =>
   Effect.gen(function* () {
@@ -84,7 +84,7 @@ export const cachedNoArgs = reactCache(() =>
 
 ```ts
 import { Context, Effect } from "effect"
-import { reactCache } from "@mcrovero/effect-react-cache/dist/ReactCache.js"
+import { reactCache } from "@mcrovero/effect-react-cache"
 
 class Random extends Context.Tag("MyRandomService")<Random, { readonly next: Effect.Effect<number> }>() {}
 

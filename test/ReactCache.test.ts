@@ -122,4 +122,68 @@ describe("reactCache", () => {
     expect(b).toBe("user:x")
     expect(runCount).toBe(1)
   })
+
+  it("caches errors for the same arguments (single run)", async () => {
+    let runCount = 0
+
+    const failing = (id: string) =>
+      Effect.gen(function*() {
+        runCount += 1
+        yield* Effect.sleep(5)
+        return yield* Effect.fail(`boom:${id}` as const)
+      })
+
+    const cached = reactCache(failing)
+
+    // First call rejects
+    await expect(Effect.runPromise(cached("e1"))).rejects.toThrowError("boom:e1")
+    // Second call with same args reuses the same rejection
+    await expect(Effect.runPromise(cached("e1"))).rejects.toThrowError("boom:e1")
+
+    expect(runCount).toBe(1)
+  })
+
+  it("does not share errors across different arguments", async () => {
+    let runCount = 0
+
+    const failing = (id: string) =>
+      Effect.gen(function*() {
+        runCount += 1
+        yield* Effect.sleep(5)
+        return yield* Effect.fail(`boom:${id}` as const)
+      })
+
+    const cached = reactCache(failing)
+
+    await expect(Effect.runPromise(cached("a"))).rejects.toThrowError("boom:a")
+    await expect(Effect.runPromise(cached("b"))).rejects.toThrowError("boom:b")
+
+    expect(runCount).toBe(2)
+  })
+
+  it("shares the same pending rejected promise across concurrent calls", async () => {
+    let runCount = 0
+
+    const failing = (id: string) =>
+      Effect.gen(function*() {
+        runCount += 1
+        yield* Effect.sleep(20)
+        return yield* Effect.fail(`boom:${id}` as const)
+      })
+
+    const cached = reactCache(failing)
+
+    const results = await Promise.allSettled([
+      Effect.runPromise(cached("x")),
+      Effect.runPromise(cached("x"))
+    ])
+
+    expect(results[0].status).toBe("rejected")
+    expect(results[1].status).toBe("rejected")
+    if (results[0].status === "rejected" && results[1].status === "rejected") {
+      expect((results[0].reason as Error).message).toBe("boom:x")
+      expect((results[1].reason as Error).message).toBe("boom:x")
+    }
+    expect(runCount).toBe(1)
+  })
 })

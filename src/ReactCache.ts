@@ -37,10 +37,15 @@ const runEffectCachedFn = cache(
 export const reactCache = <A, E, R, Args extends Array<unknown>>(
   effect: (...args: Args) => Effect.Effect<A, E, R>
 ) => {
-  return (...args: Args) =>
+  return (
+    ...args: Args
+  ): Effect.Effect<A, E, R> =>
     Effect.gen(function*() {
       const context = yield* Effect.context<R>()
-      const value = yield* Effect.promise(() => runEffectCachedFn(effect, ...args)(context))
-      return value as A
+      const value: A = yield* Effect.tryPromise({
+        try: () => runEffectCachedFn(effect, ...args)(context),
+        catch: (e) => e as E
+      })
+      return value
     })
 }
