@@ -1,0 +1,2 @@
+- Avoid using `any` in the code.
+- You can run 'pnpm lint-fix' to fix linting errors.
