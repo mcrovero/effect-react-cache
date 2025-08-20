@@ -1,7 +1,18 @@
-import { Effect } from "effect"
+import { Cause, Effect, Exit } from "effect"
 import type * as Context from "effect/Context"
 import type * as Scope from "effect/Scope"
 import { cache } from "react"
+
+type CauseResult<E> = {
+  error: E | undefined
+  defect: unknown
+}
+
+type PromiseResult<A, E> = {
+  success: A | undefined
+  error: E | undefined
+  defect: unknown
+}
 
 /**
  * @since 1.0.0
@@ -23,11 +34,33 @@ const runEffectFn = <A, E, R, Args extends Array<unknown>>(
   effect: (...args: Args) => Effect.Effect<A, E, NoScope<R>>,
   context: Context.Context<NoScope<R>>,
   ...args: Args
-) => {
+): Promise<PromiseResult<A, E>> => {
   const effectResult = effect(...args)
   const effectWithContext = Effect.provide(effectResult, context)
 
-  return Effect.runPromise(effectWithContext)
+  return Effect.runPromiseExit(effectWithContext).then((exit) => {
+    if (Exit.isSuccess(exit)) {
+      return { success: exit.value, error: undefined, defect: undefined }
+    }
+    if (Exit.isFailure(exit)) {
+      const cause = Cause.match(exit.cause, {
+        onEmpty: { error: undefined, defect: undefined } as CauseResult<E>,
+        onFail: (error) => ({ error, defect: undefined }),
+        onDie: (defect) => ({ error: undefined, defect }),
+        onInterrupt: () => {
+          throw new Error("Interrupt cause not supported")
+        },
+        onSequential: () => {
+          throw new Error("Sequential cause not supported")
+        },
+        onParallel: () => {
+          throw new Error("Parallel cause not supported")
+        }
+      })
+      return { success: undefined, error: cause.error, defect: cause.defect }
+    }
+    return { success: undefined, error: undefined, defect: undefined }
+  })
 }
 
 const runEffectCachedFn = cache(
@@ -35,7 +68,7 @@ const runEffectCachedFn = cache(
     effect: (...args: Args) => Effect.Effect<A, E, NoScope<R>>,
     ...args: Args
   ) => {
-    let promise: Promise<A> | undefined
+    let promise: Promise<PromiseResult<A, E>>
     return (context: Context.Context<NoScope<R>>) => {
       if (!promise) {
         promise = runEffectFn<A, E, R, Args>(effect, context, ...args)
@@ -64,10 +97,13 @@ export const reactCache = <A, E, R, Args extends Array<unknown>>(
   ): Effect.Effect<A, E, NoScope<R>> =>
     Effect.gen(function*() {
       const context = yield* Effect.context<NoScope<R>>()
-      const value: A = yield* Effect.tryPromise({
-        try: () => runEffectCachedFn(effect, ...args)(context),
-        catch: (e) => e as E
-      })
-      return value
+      const result = yield* Effect.promise(() => runEffectCachedFn(effect, ...args)(context))
+      if (result.success) {
+        return yield* Effect.succeed(result.success)
+      }
+      if (result.error) {
+        return yield* Effect.fail(result.error)
+      }
+      return yield* Effect.die(result.defect)
     })
 }
