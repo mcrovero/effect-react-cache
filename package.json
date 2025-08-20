@@ -27,9 +27,9 @@
     "changeset-version": "changeset version",
     "changeset-publish": "pnpm build && TEST_DIST= pnpm vitest && changeset publish"
   },
-  "dependencies": {
-    "effect": "latest",
-    "react": "^19.1.1"
+  "peerDependencies": {
+    "effect": "^3.0.0",
+    "react": "^19.0.0"
   },
   "devDependencies": {
     "@babel/cli": "^7.24.8",
@@ -49,6 +49,7 @@
     "@types/react": "^19.1.10",
     "@typescript-eslint/eslint-plugin": "^8.4.0",
     "@typescript-eslint/parser": "^8.4.0",
+    "effect": "^3.0.0",
     "babel-plugin-annotate-pure-calls": "^0.4.0",
     "eslint": "^9.10.0",
     "eslint-import-resolver-typescript": "^3.6.3",
@@ -56,6 +57,7 @@
     "eslint-plugin-import": "^2.30.0",
     "eslint-plugin-simple-import-sort": "^12.1.1",
     "eslint-plugin-sort-destructure-keys": "^2.0.0",
+    "react": "^19.0.0",
     "tsx": "^4.17.0",
     "typescript": "^5.6.2",
     "vitest": "^3.2.0"
