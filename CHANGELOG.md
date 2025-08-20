@@ -1,5 +1,13 @@
 # @mcrovero/effect-react-cache
 
+## 0.2.2
+
+### Patch Changes
+
+- [`fce9fda`](https://github.com/mcrovero/effect-react-cache/commit/fce9fda61f5de76bd935539022ede2e1b2dfcda4) Thanks @mcrovero! - moved deps to peer dependencies
+
+- [`06bb476`](https://github.com/mcrovero/effect-react-cache/commit/06bb4764857727c2e6c4d90b9786e4f224ce2bc5) Thanks @mcrovero! - fix: handling fails and defects correctly
+
 ## 0.2.1
 
 ### Patch Changes
