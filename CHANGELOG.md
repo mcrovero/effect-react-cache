@@ -1,5 +1,11 @@
 # @mcrovero/effect-react-cache
 
+## 0.2.3
+
+### Patch Changes
+
+- [`b275295`](https://github.com/mcrovero/effect-react-cache/commit/b275295d86b9ca103f5e2f5f1a6795aeb67bec6f) Thanks @mcrovero! - Moved from to runtime execution to keep tracing spans
+
 ## 0.2.2
 
 ### Patch Changes
