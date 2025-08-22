@@ -186,4 +186,20 @@ describe("reactCache", () => {
     }
     expect(runCount).toBe(1)
   })
+
+  it("preserves current span across cached execution", async () => {
+    const traced = () =>
+      Effect.gen(function*() {
+        const span = yield* Effect.currentSpan
+        return span.name
+      })
+
+    const cached = reactCache(traced)
+
+    const result = await Effect.runPromise(
+      cached().pipe(Effect.withSpan("outer-span"))
+    )
+
+    expect(result).toBe("outer-span")
+  })
 })

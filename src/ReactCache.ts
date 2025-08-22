@@ -1,5 +1,4 @@
-import { Cause, Effect, Exit } from "effect"
-import type * as Context from "effect/Context"
+import { Cause, Effect, Exit, Runtime } from "effect"
 import type * as Scope from "effect/Scope"
 import { cache } from "react"
 
@@ -32,13 +31,10 @@ type NoScope<R> = [Extract<R, Scope.Scope>] extends [never] ? R
 
 const runEffectFn = <A, E, R, Args extends Array<unknown>>(
   effect: (...args: Args) => Effect.Effect<A, E, NoScope<R>>,
-  context: Context.Context<NoScope<R>>,
+  runtime: Runtime.Runtime<NoScope<R>>,
   ...args: Args
 ): Promise<PromiseResult<A, E>> => {
-  const effectResult = effect(...args)
-  const effectWithContext = Effect.provide(effectResult, context)
-
-  return Effect.runPromiseExit(effectWithContext).then((exit) => {
+  return Runtime.runPromiseExit(runtime, effect(...args)).then((exit: Exit.Exit<A, E>) => {
     if (Exit.isSuccess(exit)) {
       return { success: exit.value, error: undefined, defect: undefined }
     }
@@ -69,9 +65,9 @@ const runEffectCachedFn = cache(
     ...args: Args
   ) => {
     let promise: Promise<PromiseResult<A, E>>
-    return (context: Context.Context<NoScope<R>>) => {
+    return (runtime: Runtime.Runtime<NoScope<R>>) => {
       if (!promise) {
-        promise = runEffectFn<A, E, R, Args>(effect, context, ...args)
+        promise = runEffectFn<A, E, R, Args>(effect, runtime, ...args)
       }
       return promise
     }
@@ -96,8 +92,8 @@ export const reactCache = <A, E, R, Args extends Array<unknown>>(
     ...args: Args
   ): Effect.Effect<A, E, NoScope<R>> =>
     Effect.gen(function*() {
-      const context = yield* Effect.context<NoScope<R>>()
-      const result = yield* Effect.promise(() => runEffectCachedFn(effect, ...args)(context))
+      const runtime = yield* Effect.runtime<NoScope<R>>()
+      const result = yield* Effect.promise(() => runEffectCachedFn(effect, ...args)(runtime))
       if (result.success) {
         return yield* Effect.succeed(result.success)
       }
