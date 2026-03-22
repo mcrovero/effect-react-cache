@@ -5,7 +5,7 @@
 
 > This library is in early alpha and not yet ready for production use.
 
-Typed helpers to compose React’s `cache` with `Effect` in a type-safe, ergonomic way.
+Typed helpers to compose React’s server `cache` with `Effect` in a type-safe, ergonomic way.
 
 ### Install
 
@@ -15,7 +15,7 @@ pnpm add @mcrovero/effect-react-cache effect react
 
 ## Why
 
-React exposes a low-level `cache` primitive to memoize async work by argument tuple. This library wraps an `Effect`-returning function with React’s `cache` so you can:
+React exposes a low-level `cache` primitive to memoize async work by argument tuple during a React Server Component render. This library wraps an `Effect`-returning function with React’s `cache` so you can:
 
 - Deduplicate concurrent calls: share the same pending promise across callers
 - Memoize by arguments: same args → same result without re-running the effect
@@ -37,6 +37,8 @@ const fetchUser = (id: string) =>
 const cachedFetchUser = reactCache(fetchUser)
 
 // 2) Use it like any other Effect
+// React memoization only happens when this Effect is executed
+// from an active React server render.
 await Effect.runPromise(cachedFetchUser("u-1"))
 ```
 
@@ -56,7 +58,8 @@ const getUser = (id: string) =>
 
 export const cachedGetUser = reactCache(getUser)
 
-// Same args → computed once, then memoized
+// When executed inside the same React server render:
+// same args → computed once, then memoized
 await Effect.runPromise(cachedGetUser("42"))
 await Effect.runPromise(cachedGetUser("42")) // reuses cached promise
 ```
@@ -91,7 +94,8 @@ export const cachedWithRequirements = reactCache(() =>
   })
 )
 
-// First call for a given args tuple determines the cached value
+// Inside the same React server render, the first call for a given args tuple
+// determines the cached value
 await Effect.runPromise(cachedWithRequirements().pipe(Effect.provideService(Random, { next: Effect.succeed(111) })))
 
 // Subsequent calls with the same args reuse the first result,
@@ -102,9 +106,9 @@ await Effect.runPromise(cachedWithRequirements().pipe(Effect.provideService(Rand
 ## API
 
 ```ts
-declare const reactCache: <A, E, R, Args extends Array<unknown>>(
-  effect: (...args: Args) => Effect.Effect<A, E, NoScope<R>>
-) => (...args: Args) => Effect.Effect<A, E, NoScope<R>>
+declare const reactCache: <F extends (...args: Array<any>) => Effect.Effect<any, any, any>>(
+  effect: F
+) => (...args: Parameters<F>) => ReturnType<F>
 ```
 
 - Input: an `Effect`-returning function
@@ -114,7 +118,7 @@ declare const reactCache: <A, E, R, Args extends Array<unknown>>(
 
 - Internally uses `react/cache` to memoize by the argument tuple.
 - For each unique args tuple, the first evaluation creates a single promise that is reused by all subsequent calls (including concurrent calls).
-- The `Effect` context (`R`) is captured at call time, but for a given args tuple the first successful or failed promise is reused for the lifetime of the process.
+- The `Effect` context (`R`) is captured at call time, but for a given args tuple the first completed `Exit` is reused for the lifetime of the current React request/render cache.
 
 ### Important behaviors
 
@@ -138,7 +142,7 @@ declare const reactCache: <A, E, R, Args extends Array<unknown>>(
 
 ## Testing
 
-When running tests outside a React runtime, you may want to mock `react`’s `cache` to ensure deterministic, in-memory memoization:
+When running tests outside a React server render, you may want to mock `react`’s `cache` to ensure deterministic, in-memory memoization. React’s default non-server build treats `cache` as a passthrough, so plain `Effect.runPromise(...)` calls will not memoize on their own. A simple primitive-oriented mock looks like this:
 
 ```ts
 import { vi } from "vitest"
@@ -159,14 +163,14 @@ vi.mock("react", () => {
 })
 ```
 
-See `test/ReactCache.test.ts` for examples covering caching, argument sensitivity, context provisioning, and concurrency.
+See `test/ReactCache.test.ts` for a more faithful identity-based mock and examples covering caching, argument sensitivity, context provisioning, and concurrency.
 
 ## Caveats and tips
 
-- The cache is keyed by the argument tuple using React’s semantics. Prefer using primitives or stable/serializable values as arguments.
+- The cache is keyed by the argument tuple using React’s semantics. Prefer primitives or stable object identities as arguments.
 - Since the first outcome is cached, design your effects such that this is acceptable for your use case. For context-sensitive computations, include discriminators in the argument list.
-- This library is designed for server-side usage (e.g., React Server Components / server actions) where React’s `cache` is meaningful.
+- This library is designed for React Server Components. Outside a React server render, `react`’s default `cache` implementation is effectively a passthrough.
 
 ## Works with Next.js
 
-You can use this library together with [@mcrovero/effect-nextjs](https://www.npmjs.com/package/@mcrovero/effect-nextjs) to cache `Effect`-based functions between Next.js pages, layouts, and server components.
+You can use this library together with [@mcrovero/effect-nextjs](https://www.npmjs.com/package/@mcrovero/effect-nextjs) to deduplicate `Effect`-based functions within the same Next.js server render across pages, layouts, and server components.
