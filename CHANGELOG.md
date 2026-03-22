@@ -1,5 +1,13 @@
 # @mcrovero/effect-react-cache
 
+## 0.2.4
+
+### Patch Changes
+
+- [#7](https://github.com/mcrovero/effect-react-cache/pull/7) [`f66541d`](https://github.com/mcrovero/effect-react-cache/commit/f66541d139f81340f40474b7cb886c88a14c3ec1) Thanks @mcrovero! - Fix `reactCache` to preserve full `Exit` information, including falsy values and composed causes, instead of collapsing failures into a lossy intermediate shape.
+
+  Clarify the React and Next.js caching semantics in the docs and add real Next.js integration coverage for request scoping, cross-component deduplication, and non-render route-handler behavior.
+
 ## 0.2.3
 
 ### Patch Changes
