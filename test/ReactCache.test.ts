@@ -146,6 +146,46 @@ describe("reactCache", () => {
     expect(runCount).toBe(1)
   })
 
+  it("uses the first caller context for concurrent calls with the same arguments", async () => {
+    class Random extends Context.Tag("ConcurrentRandomService")<
+      Random,
+      { readonly next: Effect.Effect<number> }
+    >() {}
+
+    let runCount = 0
+
+    const uncached = () =>
+      Effect.gen(function*() {
+        runCount += 1
+        const random = yield* Random
+        yield* Effect.sleep(20)
+        return yield* random.next
+      })
+
+    const cached = reactCache(uncached)
+
+    const [result1, result2] = await Promise.all([
+      Effect.runPromise(
+        cached().pipe(
+          Effect.provideService(Random, {
+            next: Effect.succeed(111)
+          })
+        )
+      ),
+      Effect.runPromise(
+        cached().pipe(
+          Effect.provideService(Random, {
+            next: Effect.succeed(222)
+          })
+        )
+      )
+    ])
+
+    expect(result1).toBe(111)
+    expect(result2).toBe(111)
+    expect(runCount).toBe(1)
+  })
+
   it("shares the same pending promise across concurrent calls", async () => {
     let runCount = 0
 
@@ -272,6 +312,35 @@ describe("reactCache", () => {
       expect(pretty).toContain("boom")
       expect(pretty).toContain("cleanup")
     }
+  })
+
+  it("preserves and caches defects for the same arguments", async () => {
+    let runCount = 0
+
+    const cached = reactCache((id: string) =>
+      Effect.sync(() => {
+        runCount += 1
+        throw new Error(`defect:${id}`)
+      }))
+
+    const first = await Effect.runPromiseExit(cached("x"))
+    const second = await Effect.runPromiseExit(cached("x"))
+
+    expect(Exit.isFailure(first)).toBe(true)
+    expect(Exit.isFailure(second)).toBe(true)
+
+    if (Exit.isFailure(first) && Exit.isFailure(second)) {
+      const firstDefects = Chunk.toReadonlyArray(Cause.defects(first.cause))
+      const secondDefects = Chunk.toReadonlyArray(Cause.defects(second.cause))
+
+      expect(firstDefects).toHaveLength(1)
+      expect(secondDefects).toHaveLength(1)
+      expect(firstDefects[0]).toBeInstanceOf(Error)
+      expect(secondDefects[0]).toBe(firstDefects[0])
+      expect((firstDefects[0] as Error).message).toBe("defect:x")
+    }
+
+    expect(runCount).toBe(1)
   })
 
   it("uses React-style identity semantics for object arguments", async () => {
