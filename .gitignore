@@ -1,6 +1,8 @@
 coverage/
 *.tsbuildinfo
 node_modules/
+.pnpm-store/
+.next/
 .DS_Store
 tmp/
 dist/
@@ -15,3 +17,4 @@ scratchpad/*
 .env.development.local
 .env.test.local
 .env.production.local
+fixtures/next-app/pnpm-lock.yaml

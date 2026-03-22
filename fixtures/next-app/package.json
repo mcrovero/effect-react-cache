@@ -1,0 +1,22 @@
+{
+  "name": "private-effect-react-cache-next-fixture",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.10.0",
+  "scripts": {
+    "build": "next build",
+    "start": "next start",
+    "dev": "next dev"
+  },
+  "dependencies": {
+    "effect": "^3.17.7",
+    "next": "15.5.4",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@mcrovero/effect-react-cache": "link:../../dist",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2"
+  }
+}

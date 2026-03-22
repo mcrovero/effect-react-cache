@@ -1,21 +1,66 @@
-import { Context, Effect } from "effect"
+import { Cause, Chunk, Context, Effect, Exit } from "effect"
 import { describe, expect, it, vi } from "vitest"
 import { reactCache } from "../src/ReactCache.js"
 
 vi.mock("react", () => {
+  type CacheNode<A> = {
+    o?: WeakMap<object, CacheNode<A>>
+    p?: Map<unknown, CacheNode<A>>
+    s?: 0 | 1 | 2
+    v?: A | unknown
+  }
+
+  const createCacheNode = <A>(): CacheNode<A> => ({})
+
   return {
     cache: <F extends (...args: Array<any>) => any>(fn: F) => {
-      const memo = new Map<string, ReturnType<F>>()
+      const root = createCacheNode<ReturnType<F>>()
+
       return ((...args: Array<any>) => {
-        const key = JSON.stringify(args, (_k, v) => {
-          if (typeof v === "function") return `fn:${v.name || "anon"}`
-          if (typeof v === "symbol") return v.toString()
-          return v
-        })
-        if (!memo.has(key)) {
-          memo.set(key, fn(...args))
+        let node = root
+
+        for (const arg of args) {
+          if (typeof arg === "function" || (typeof arg === "object" && arg !== null)) {
+            if (!node.o) {
+              node.o = new WeakMap<object, CacheNode<ReturnType<F>>>()
+            }
+            let next = node.o.get(arg)
+            if (!next) {
+              next = createCacheNode()
+              node.o.set(arg, next)
+            }
+            node = next
+            continue
+          }
+
+          if (!node.p) {
+            node.p = new Map<unknown, CacheNode<ReturnType<F>>>()
+          }
+          let next = node.p.get(arg)
+          if (!next) {
+            next = createCacheNode()
+            node.p.set(arg, next)
+          }
+          node = next
         }
-        return memo.get(key) as ReturnType<F>
+
+        if (node.s === 1) {
+          return node.v as ReturnType<F>
+        }
+        if (node.s === 2) {
+          throw node.v
+        }
+
+        try {
+          const result = fn(...args)
+          node.s = 1
+          node.v = result
+          return result
+        } catch (error) {
+          node.s = 2
+          node.v = error
+          throw error
+        }
       }) as F
     }
   }
@@ -95,6 +140,46 @@ describe("reactCache", () => {
         })
       )
     )
+
+    expect(result1).toBe(111)
+    expect(result2).toBe(111)
+    expect(runCount).toBe(1)
+  })
+
+  it("uses the first caller context for concurrent calls with the same arguments", async () => {
+    class Random extends Context.Tag("ConcurrentRandomService")<
+      Random,
+      { readonly next: Effect.Effect<number> }
+    >() {}
+
+    let runCount = 0
+
+    const uncached = () =>
+      Effect.gen(function*() {
+        runCount += 1
+        const random = yield* Random
+        yield* Effect.sleep(20)
+        return yield* random.next
+      })
+
+    const cached = reactCache(uncached)
+
+    const [result1, result2] = await Promise.all([
+      Effect.runPromise(
+        cached().pipe(
+          Effect.provideService(Random, {
+            next: Effect.succeed(111)
+          })
+        )
+      ),
+      Effect.runPromise(
+        cached().pipe(
+          Effect.provideService(Random, {
+            next: Effect.succeed(222)
+          })
+        )
+      )
+    ])
 
     expect(result1).toBe(111)
     expect(result2).toBe(111)
@@ -185,6 +270,98 @@ describe("reactCache", () => {
       expect((results[1].reason as Error).message).toBe("boom:x")
     }
     expect(runCount).toBe(1)
+  })
+
+  it("preserves falsy success values", async () => {
+    let runCount = 0
+
+    const cached = reactCache(() =>
+      Effect.sync(() => {
+        runCount += 1
+        return false
+      })
+    )
+
+    const result1 = await Effect.runPromise(cached())
+    const result2 = await Effect.runPromise(cached())
+
+    expect(result1).toBe(false)
+    expect(result2).toBe(false)
+    expect(runCount).toBe(1)
+  })
+
+  it("preserves falsy typed errors", async () => {
+    const cached = reactCache(() => Effect.fail(""))
+
+    const exit = await Effect.runPromiseExit(cached())
+
+    expect(Exit.isFailure(exit)).toBe(true)
+    if (Exit.isFailure(exit)) {
+      expect(Chunk.toReadonlyArray(Cause.failures(exit.cause))).toEqual([""])
+    }
+  })
+
+  it("preserves composed causes", async () => {
+    const cached = reactCache(() => Effect.failCause(Cause.sequential(Cause.fail("boom"), Cause.fail("cleanup"))))
+
+    const exit = await Effect.runPromiseExit(cached())
+
+    expect(Exit.isFailure(exit)).toBe(true)
+    if (Exit.isFailure(exit)) {
+      const pretty = Cause.pretty(exit.cause)
+      expect(pretty).toContain("boom")
+      expect(pretty).toContain("cleanup")
+    }
+  })
+
+  it("preserves and caches defects for the same arguments", async () => {
+    let runCount = 0
+
+    const cached = reactCache((id: string) =>
+      Effect.sync(() => {
+        runCount += 1
+        throw new Error(`defect:${id}`)
+      })
+    )
+
+    const first = await Effect.runPromiseExit(cached("x"))
+    const second = await Effect.runPromiseExit(cached("x"))
+
+    expect(Exit.isFailure(first)).toBe(true)
+    expect(Exit.isFailure(second)).toBe(true)
+
+    if (Exit.isFailure(first) && Exit.isFailure(second)) {
+      const firstDefects = Chunk.toReadonlyArray(Cause.defects(first.cause))
+      const secondDefects = Chunk.toReadonlyArray(Cause.defects(second.cause))
+
+      expect(firstDefects).toHaveLength(1)
+      expect(secondDefects).toHaveLength(1)
+      expect(firstDefects[0]).toBeInstanceOf(Error)
+      expect(secondDefects[0]).toBe(firstDefects[0])
+      expect((firstDefects[0] as Error).message).toBe("defect:x")
+    }
+
+    expect(runCount).toBe(1)
+  })
+
+  it("uses React-style identity semantics for object arguments", async () => {
+    let runCount = 0
+
+    const cached = reactCache((input: { readonly id: string }) =>
+      Effect.sync(() => {
+        runCount += 1
+        return input.id
+      })
+    )
+
+    const stableInput = { id: "same-ref" }
+
+    await Effect.runPromise(cached(stableInput))
+    await Effect.runPromise(cached(stableInput))
+    await Effect.runPromise(cached({ id: "same-shape" }))
+    await Effect.runPromise(cached({ id: "same-shape" }))
+
+    expect(runCount).toBe(3)
   })
 
   it("preserves current span across cached execution", async () => {
