@@ -4,7 +4,7 @@ import { reactCache } from "../src/ReactCache.js"
 
 vi.mock("react", () => {
   type CacheNode<A> = {
-    o?: WeakMap<object | Function, CacheNode<A>>
+    o?: WeakMap<object, CacheNode<A>>
     p?: Map<unknown, CacheNode<A>>
     s?: 0 | 1 | 2
     v?: A | unknown
@@ -14,7 +14,7 @@ vi.mock("react", () => {
 
   return {
     cache: <F extends (...args: Array<any>) => any>(fn: F) => {
-      let root = createCacheNode<ReturnType<F>>()
+      const root = createCacheNode<ReturnType<F>>()
 
       return ((...args: Array<any>) => {
         let node = root
@@ -22,7 +22,7 @@ vi.mock("react", () => {
         for (const arg of args) {
           if (typeof arg === "function" || (typeof arg === "object" && arg !== null)) {
             if (!node.o) {
-              node.o = new WeakMap<object | Function, CacheNode<ReturnType<F>>>()
+              node.o = new WeakMap<object, CacheNode<ReturnType<F>>>()
             }
             let next = node.o.get(arg)
             if (!next) {
@@ -279,7 +279,8 @@ describe("reactCache", () => {
       Effect.sync(() => {
         runCount += 1
         return false
-      }))
+      })
+    )
 
     const result1 = await Effect.runPromise(cached())
     const result2 = await Effect.runPromise(cached())
@@ -301,8 +302,7 @@ describe("reactCache", () => {
   })
 
   it("preserves composed causes", async () => {
-    const cached = reactCache(() =>
-      Effect.failCause(Cause.sequential(Cause.fail("boom"), Cause.fail("cleanup"))))
+    const cached = reactCache(() => Effect.failCause(Cause.sequential(Cause.fail("boom"), Cause.fail("cleanup"))))
 
     const exit = await Effect.runPromiseExit(cached())
 
@@ -321,7 +321,8 @@ describe("reactCache", () => {
       Effect.sync(() => {
         runCount += 1
         throw new Error(`defect:${id}`)
-      }))
+      })
+    )
 
     const first = await Effect.runPromiseExit(cached("x"))
     const second = await Effect.runPromiseExit(cached("x"))
@@ -350,7 +351,8 @@ describe("reactCache", () => {
       Effect.sync(() => {
         runCount += 1
         return input.id
-      }))
+      })
+    )
 
     const stableInput = { id: "same-ref" }
 

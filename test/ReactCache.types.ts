@@ -2,8 +2,7 @@ import { Effect } from "effect"
 import type * as Scope from "effect/Scope"
 import { reactCache } from "../src/ReactCache.js"
 
-const cachedNoScope = reactCache((id: string, attempt: number) =>
-  Effect.succeed({ id, attempt } as const))
+const cachedNoScope = reactCache((id: string, attempt: number) => Effect.succeed({ id, attempt } as const))
 
 const sameSignature: (
   id: string,
